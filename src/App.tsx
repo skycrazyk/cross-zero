@@ -100,6 +100,10 @@ const winPositions = [
     ],
 ]
 
+function SignView({sign}: {sign: GameSign}) {
+    return sign === Sign.Cross ? 'X' : sign === Sign.Zero ? 'O' : ' '
+}
+
 function App() {
     const firstStep = useRef<PlayerSign>(Sign.Cross)
     const [currentSign, setCurrentSign] = useState<PlayerSign>(firstStep.current)
@@ -171,10 +175,13 @@ function App() {
         <>
             {winner ? (
                 <h2>
-                    Победитель: {winner.sign} <button onClick={reset}>Сброс</button>
+                    Победитель: <SignView sign={winner.sign} />
+                    {winner.sign} <button onClick={reset}>Сброс</button>
                 </h2>
             ) : (
-                <h2>Текущий ход: {currentSign}</h2>
+                <h2>
+                    Текущий ход: <SignView sign={currentSign} />
+                </h2>
             )}
             <div style={{display: 'flex'}}>
                 {field.map((row, rowIndex) => {
@@ -190,11 +197,7 @@ function App() {
                                                 : undefined
                                         }
                                     >
-                                        {cell.sign === Sign.Cross
-                                            ? 'X'
-                                            : cell.sign === Sign.Zero
-                                            ? 'O'
-                                            : ' '}
+                                        <SignView sign={cell.sign} />
                                     </Cell>
                                 )
                             })}
