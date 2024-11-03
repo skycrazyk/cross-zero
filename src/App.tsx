@@ -188,6 +188,7 @@ function App() {
     }, [playersMap])
 
     // TODO добавить подсветку выйгравшей позиции
+    // TODO добавить отображение ничьей
     return (
         <>
             {winner ? (
