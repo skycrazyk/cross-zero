@@ -1,5 +1,4 @@
 import {produce} from 'immer'
-import {isDeepEqual} from 'remeda'
 import {useState, useMemo, useCallback, useEffect, useRef} from 'react'
 import {Cell} from './Cell'
 import {Row} from './Rol'
@@ -16,11 +15,12 @@ type Field<T> = Row<Row<T>>
 
 type PlayerSign = Sign.Cross | Sign.Zero
 type PlayerCell = number
+type PlayerField = Field<PlayerCell>
 
 type GameSign = PlayerSign | Sign.Empty
 type GameCell = {
     sign: GameSign
-    onClick?: (rowIndex: number, colIndex: number) => void
+    onClick?: () => void
 }
 
 type GameRow = Row<GameCell>
@@ -32,10 +32,10 @@ function createField<C>(generator: () => C) {
 function usePlayer({sign}: {sign: PlayerSign}) {
     const [state, setState] = useState(createField(() => 0 as PlayerCell))
 
-    const mark = useCallback((rowIndex: number, colIndex: number) => {
+    const mark = useCallback((rowIndex: number, cellIndex: number) => {
         setState(
             produce((draft) => {
-                draft[rowIndex][colIndex] = 1
+                draft[rowIndex][cellIndex] = 1
             })
         )
     }, [])
@@ -57,7 +57,7 @@ function usePlayer({sign}: {sign: PlayerSign}) {
 
 type Player = ReturnType<typeof usePlayer>
 
-const winPositions = [
+const winPositions: PlayerField[] = [
     [
         [1, 1, 1],
         [0, 0, 0],
@@ -108,6 +108,7 @@ function App() {
     const firstStep = useRef<PlayerSign>(Sign.Cross)
     const [currentSign, setCurrentSign] = useState<PlayerSign>(firstStep.current)
     const [winner, setWinner] = useState<Player>()
+    const [winnerPosition, setWinnerPosition] = useState<PlayerField>()
     const player1 = usePlayer({sign: Sign.Cross})
     const player2 = usePlayer({sign: Sign.Zero})
 
@@ -123,15 +124,30 @@ function App() {
         firstStep.current = firstStep.current === Sign.Cross ? Sign.Zero : Sign.Cross
         setCurrentSign(firstStep.current)
         setWinner(undefined)
+        setWinnerPosition(undefined)
     }, [player1, player2])
 
     useEffect(() => {
-        const player = Object.values(playersMap).find((player) => {
-            return winPositions.some((wp) => isDeepEqual(wp, player.state))
-        })
+        const winPlayer = Object.values(playersMap).find((player) =>
+            winPositions.some((p) => {
+                for (let rowIndex = 0; rowIndex < p.length; rowIndex++) {
+                    for (let cellIndex = 0; cellIndex < p[rowIndex].length; cellIndex++) {
+                        if (
+                            p[rowIndex][cellIndex] === 1 &&
+                            player.state[rowIndex][cellIndex] !== 1
+                        ) {
+                            return false
+                        }
+                    }
+                }
 
-        if (player) {
-            setWinner(player)
+                setWinnerPosition(p)
+                return true
+            })
+        )
+
+        if (winPlayer) {
+            setWinner(winPlayer)
         }
     }, [playersMap])
 
@@ -149,7 +165,7 @@ function App() {
                                 sign: cell ? player.sign : Sign.Empty,
                                 onClick: cell
                                     ? undefined
-                                    : (rowIndex: number, cellIndex: number) => {
+                                    : () => {
                                           setCurrentSign((sign) => {
                                               playersMap[sign].mark(rowIndex, cellIndex)
                                               return sign === Sign.Cross ? Sign.Zero : Sign.Cross
@@ -171,6 +187,7 @@ function App() {
         )
     }, [playersMap])
 
+    // TODO добавить подсветку выйгравшей позиции
     return (
         <>
             {winner ? (
@@ -183,27 +200,22 @@ function App() {
                     Текущий ход: <SignView sign={currentSign} />
                 </h2>
             )}
-            <div style={{display: 'flex'}}>
-                {field.map((row, rowIndex) => {
-                    return (
-                        <Row>
-                            {row.map((cell, cellIndex) => {
-                                return (
-                                    <Cell
-                                        disabled={!!winner}
-                                        onClick={
-                                            cell.onClick
-                                                ? () => cell.onClick?.(rowIndex, cellIndex)
-                                                : undefined
-                                        }
-                                    >
-                                        <SignView sign={cell.sign} />
-                                    </Cell>
-                                )
-                            })}
-                        </Row>
-                    )
-                })}
+            <div>
+                {field.map((row, rowIndex) => (
+                    <Row key={rowIndex}>
+                        {row.map((cell, cellIndex) => {
+                            return (
+                                <Cell
+                                    key={`${rowIndex}${cellIndex}`}
+                                    disabled={!!winner}
+                                    onClick={cell.onClick}
+                                >
+                                    <SignView sign={cell.sign} />
+                                </Cell>
+                            )
+                        })}
+                    </Row>
+                ))}
             </div>
         </>
     )
