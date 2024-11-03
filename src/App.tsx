@@ -1,5 +1,6 @@
 import {produce} from 'immer'
-import {useState, useMemo, useCallback} from 'react'
+import {isDeepEqual} from 'remeda'
+import {useState, useMemo, useCallback, useEffect, useRef} from 'react'
 import {Cell} from './Cell'
 import {Row} from './Rol'
 import './App.css'
@@ -14,7 +15,7 @@ type Row<T> = [T, T, T]
 type Field<T> = Row<Row<T>>
 
 type PlayerSign = Sign.Cross | Sign.Zero
-type PlayerCell = boolean
+type PlayerCell = number
 
 type GameSign = PlayerSign | Sign.Empty
 type GameCell = {
@@ -29,18 +30,18 @@ function createField<C>(generator: () => C) {
 }
 
 function usePlayer({sign}: {sign: PlayerSign}) {
-    const [state, setState] = useState(createField(() => false as PlayerCell))
+    const [state, setState] = useState(createField(() => 0 as PlayerCell))
 
     const mark = useCallback((rowIndex: number, colIndex: number) => {
         setState(
             produce((draft) => {
-                draft[rowIndex][colIndex] = true
+                draft[rowIndex][colIndex] = 1
             })
         )
     }, [])
 
     const reset = useCallback(() => {
-        setState(createField(() => false))
+        setState(createField(() => 0))
     }, [])
 
     return useMemo(
@@ -100,9 +101,9 @@ const winPositions = [
 ]
 
 function App() {
-    const [currentSign, setCurrentSign] = useState<PlayerSign>(Sign.Cross)
+    const firstStep = useRef<PlayerSign>(Sign.Cross)
+    const [currentSign, setCurrentSign] = useState<PlayerSign>(firstStep.current)
     const [winner, setWinner] = useState<Player>()
-
     const player1 = usePlayer({sign: Sign.Cross})
     const player2 = usePlayer({sign: Sign.Zero})
 
@@ -115,8 +116,20 @@ function App() {
 
     const reset = useCallback(() => {
         ;[player1, player2].forEach((p) => p.reset())
-        setCurrentSign(Sign.Cross)
+        firstStep.current = firstStep.current === Sign.Cross ? Sign.Zero : Sign.Cross
+        setCurrentSign(firstStep.current)
+        setWinner(undefined)
     }, [player1, player2])
+
+    useEffect(() => {
+        const player = Object.values(playersMap).find((player) => {
+            return winPositions.some((wp) => isDeepEqual(wp, player.state))
+        })
+
+        if (player) {
+            setWinner(player)
+        }
+    }, [playersMap])
 
     const field = useMemo(() => {
         return Object.values(playersMap).reduce(
@@ -133,11 +146,9 @@ function App() {
                                 onClick: cell
                                     ? undefined
                                     : (rowIndex: number, cellIndex: number) => {
-                                          setCurrentSign((currentSign) => {
-                                              playersMap[currentSign].mark(rowIndex, cellIndex)
-                                              return currentSign === Sign.Cross
-                                                  ? Sign.Zero
-                                                  : Sign.Cross
+                                          setCurrentSign((sign) => {
+                                              playersMap[sign].mark(rowIndex, cellIndex)
+                                              return sign === Sign.Cross ? Sign.Zero : Sign.Cross
                                           })
                                       },
                             } as GameCell
@@ -158,8 +169,13 @@ function App() {
 
     return (
         <>
-            <h2>Текущий ход: {currentSign}</h2>
-            <button onClick={reset}>Сброс</button>
+            {winner ? (
+                <h2>
+                    Победитель: {winner.sign} <button onClick={reset}>Сброс</button>
+                </h2>
+            ) : (
+                <h2>Текущий ход: {currentSign}</h2>
+            )}
             <div style={{display: 'flex'}}>
                 {field.map((row, rowIndex) => {
                     return (
@@ -167,6 +183,7 @@ function App() {
                             {row.map((cell, cellIndex) => {
                                 return (
                                     <Cell
+                                        disabled={!!winner}
                                         onClick={
                                             cell.onClick
                                                 ? () => cell.onClick?.(rowIndex, cellIndex)
