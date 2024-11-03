@@ -175,8 +175,8 @@ function App() {
         <>
             {winner ? (
                 <h2>
-                    Победитель: <SignView sign={winner.sign} />
-                    {winner.sign} <button onClick={reset}>Сброс</button>
+                    Победитель: <SignView sign={winner.sign} />{' '}
+                    <button onClick={reset}>Сброс</button>
                 </h2>
             ) : (
                 <h2>
