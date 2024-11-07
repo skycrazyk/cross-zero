@@ -21,6 +21,7 @@ type GameSign = PlayerSign | Sign.Empty
 type GameCell = {
     sign: GameSign
     onClick?: () => void
+    win?: boolean
 }
 
 type GameRow = Row<GameCell>
@@ -109,6 +110,7 @@ function App() {
     const [currentSign, setCurrentSign] = useState<PlayerSign>(firstStep.current)
     const [winner, setWinner] = useState<Player>()
     const [winnerPosition, setWinnerPosition] = useState<PlayerField>()
+    const [draw, setDraw] = useState(false)
     const player1 = usePlayer({sign: Sign.Cross})
     const player2 = usePlayer({sign: Sign.Zero})
 
@@ -125,6 +127,7 @@ function App() {
         setCurrentSign(firstStep.current)
         setWinner(undefined)
         setWinnerPosition(undefined)
+        setDraw(false)
     }, [player1, player2])
 
     useEffect(() => {
@@ -171,6 +174,7 @@ function App() {
                                               return sign === Sign.Cross ? Sign.Zero : Sign.Cross
                                           })
                                       },
+                                win: !!winnerPosition?.[rowIndex][cellIndex],
                             } as GameCell
                         }
                     })
@@ -185,13 +189,25 @@ function App() {
                     } as GameCell)
             )
         )
-    }, [playersMap])
+    }, [playersMap, winnerPosition])
+
+    useEffect(() => {
+        if (
+            field.every((row) => row.every((cell) => [Sign.Cross, Sign.Zero].includes(cell.sign)))
+        ) {
+            setDraw(true)
+        }
+    }, [field])
 
     // TODO добавить подсветку выйгравшей позиции
-    // TODO добавить отображение ничьей
     return (
         <>
-            {winner ? (
+            {draw ? (
+                <h2>
+                    Hичья!
+                    <button onClick={reset}>Сброс</button>
+                </h2>
+            ) : winner ? (
                 <h2>
                     Победитель: <SignView sign={winner.sign} />{' '}
                     <button onClick={reset}>Сброс</button>
@@ -208,8 +224,9 @@ function App() {
                             return (
                                 <Cell
                                     key={`${rowIndex}${cellIndex}`}
-                                    disabled={!!winner}
+                                    disabled={!!winner || draw}
                                     onClick={cell.onClick}
+                                    win={cell.win}
                                 >
                                     <SignView sign={cell.sign} />
                                 </Cell>
